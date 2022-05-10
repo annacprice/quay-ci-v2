@@ -51,4 +51,4 @@ jobs:
         run: |
           TAG=$(echo ${{ steps.Dockerfiles.outputs.all }} | awk -F '[-]' '{print $2}')
           echo "Running: docker run ${{ steps.image_name.outputs.IMAGE_NAME }}:${TAG}"
-          docker run ${{ secrets.REGISTRY_SERVER }}/${{ secrets.REGISTRY_NAMESPACE }}/${( steps.image_name.outputs.IMAGE_NAME )}:${TAG}
+          docker run ${{ secrets.REGISTRY_SERVER }}/${{ secrets.REGISTRY_NAMESPACE }}/${{ steps.image_name.outputs.IMAGE_NAME }}:${TAG}
