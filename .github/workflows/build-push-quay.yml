@@ -9,30 +9,44 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+
+  docker_matrix:
     runs-on: ubuntu-latest
-    
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.all }}
+      
     steps:
-      - uses: actions/checkout@master
- 
-      - name: Get Dockerfiles
+      - uses: actions/checkout@v3
+      
+      - name: Get Dockerfiles  
         uses: jitterbit/get-changed-files@v1
-        id: Dockerfiles
+        id: set-matrix
         with:
-          format: space-delimited
+          format: json
+          
+  build:
   
+    needs: docker_matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockermatrix: ${{ fromJson(needs.docker_matrix.outputs.matrix) }}
+        
+    steps:
+      - uses: actions/checkout@v3
+              
       - name: Get image name
         id: image_name
         run: |
           echo -n ::set-output name=IMAGE_NAME::
-          NAME=$(echo ${{ steps.Dockerfiles.outputs.all }} | awk -F '[.-]' '{print $2}')
+          NAME=$(echo ${{ matrix.dockermatrix }} | awk -F '[.-]' '{print $2}')
           echo "${NAME}"
  
       - name: Get image tags
         id: image_tags
         run: |
           echo -n ::set-output name=IMAGE_TAGS::
-          TAGS=$(echo ${{ steps.Dockerfiles.outputs.all }} | awk -F '[-]' '{print $2}')
+          TAGS=$(echo ${{ matrix.dockermatrix }} | awk -F '[-]' '{print $2}')
           TAGS+=('latest')
           ( IFS=$','; echo "${TAGS[*]}" )        
           
@@ -40,7 +54,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: ${{ steps.image_name.outputs.IMAGE_NAME }}
-          dockerfile: ${{ steps.Dockerfiles.outputs.all }}
+          dockerfile: ${{ matrix.dockermatrix }}
           registry: ${{ secrets.REGISTRY_SERVER }}
           repository: ${{ secrets.REGISTRY_NAMESPACE }}/${{ steps.image_name.outputs.IMAGE_NAME }}
           username: ${{ secrets.REGISTRY_USERNAME }}
@@ -49,6 +63,6 @@ jobs:
           
       - name: Test image
         run: |
-          TAG=$(echo ${{ steps.Dockerfiles.outputs.all }} | awk -F '[-]' '{print $2}')
+          TAG=$(echo ${{ matrix.dockermatrix }} | awk -F '[-]' '{print $2}')
           echo "Running: docker run ${{ steps.image_name.outputs.IMAGE_NAME }}:${TAG}"
           docker run ${{ secrets.REGISTRY_SERVER }}/${{ secrets.REGISTRY_NAMESPACE }}/${{ steps.image_name.outputs.IMAGE_NAME }}:${TAG}
